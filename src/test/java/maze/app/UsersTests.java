@@ -81,25 +81,24 @@ public class UsersTests {
         assertNotNull(returnValue);
         assertEquals(NOT_EXISTS, returnValue);
 
+        // trying to add user with negative source
+        //todo: make sure "Not_Exists" is the desirable result according to Dvir (could also be "BadParams" since negative)
+        User userNegativeSource = new User(id1, source_negative1, destination2);
+        returnValue = Solution.addUser(userNegativeSource);
+        assertNotNull(returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
+
+        // trying to add user with negative destination
+        //todo: make sure "Not_Exists" is the desirable result according to Dvir (could also be "BadParams" since negative)
+        User userNegativeDestination = new User(id1, source1, destination_negative1);
+        returnValue = Solution.addUser(userNegativeDestination);
+        assertNotNull(returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
 
         // #2 - BAD_PARAMS
         // trying to add user with negative id
         User userNegativeId = new User(id_negative1, source1, destination2);
         returnValue = Solution.addUser(userNegativeId);
-        assertNotNull(returnValue);
-        assertEquals(BAD_PARAMS, returnValue);
-
-        // trying to add user with negative source
-        //todo: check if we get "NotExists" since hop doesn't exist, or "BadParams" since negative
-        User userNegativeSource = new User(id1, source_negative1, destination2);
-        returnValue = Solution.addUser(userNegativeSource);
-        assertNotNull(returnValue);
-        assertEquals(BAD_PARAMS, returnValue);
-
-        // trying to add user with negative destination
-        //todo: check if we get "NotExists" since hop doesn't exist, or "BadParams" since negative
-        User userNegativeDestination = new User(id1, source1, destination_negative1);
-        returnValue = Solution.addUser(userNegativeDestination);
         assertNotNull(returnValue);
         assertEquals(BAD_PARAMS, returnValue);
 
@@ -180,13 +179,13 @@ public class UsersTests {
         assertEquals(returnUser, user1);
         returnUser = Solution.getUser(id2);
         assertNotNull(returnUser);
-        assertEquals(returnUser, user1);
+        assertEquals(returnUser, user2);
 
         // #2 - badUser
         // get user which was never added
         returnUser = Solution.getUser(id3);
         assertNotNull(returnUser);
-        assertEquals(returnUser, user1);
+        assertEquals(returnUser, User.badUser);
     }
 
     @Test
