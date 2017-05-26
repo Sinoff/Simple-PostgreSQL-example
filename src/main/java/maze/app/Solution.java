@@ -27,12 +27,13 @@ public class Solution {
         //todo: update for hop according to requests in homework.
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("CREATE TABLE hello_world\n" +
+            pstmt = connection.prepareStatement("CREATE TABLE hops\n" +
                     "(\n" +
-                    "    source integer,\n" +
-                    "    short_text text ,\n" +
-                    "    PRIMARY KEY (id),\n" +
-                    "    CHECK (id > 0)\n" +
+                    "    source INTEGER CHECK (source >= 1),\n" +
+                    "    destination INTEGER CHECK (destination >= 1),\n" +
+                    "    load INTEGER CHECK (load >= 1),\n" +
+                    "    PRIMARY KEY (source, destination),\n" +
+                    "    CHECK (source <> destination),\n" +
                     ")");
             pstmt.execute();
         } catch (SQLException e) {
@@ -40,12 +41,13 @@ public class Solution {
         }
         try {
             //todo: make sure old data in pstmt is overridden
+            //todo: maybe foreign key has to include both of them together (with comma separating)
             //not implicitly checking source != dest and source >=1, dest >=1, since it's checked by (referenced) hops.
             pstmt = connection.prepareStatement("CREATE TABLE users\n" +
                     "(\n" +
-                    "    id integer,\n" +
-                    "    source integer,\n" +
-                    "    destination integer ,\n" +
+                    "    id INTEGER,\n" +
+                    "    source INTEGER,\n" +
+                    "    destination INTEGER ,\n" +
                     "    PRIMARY KEY (id),\n" +
                     "    FOREIGN KEY (source)\n" +
                     "    REFERENCES hops (source),\n" +
@@ -151,7 +153,36 @@ public class Solution {
      */
     public static ReturnValue addHop(Hop hop)
     {
-        return null;
+        ReturnValue ret;
+        if (null == hop)
+        {
+            //todo: should this be changed to bad params?
+            return ReturnValue.BAD_PARAMS;
+        }
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = connection.prepareStatement("INSERT INTO hops" +
+                    " VALUES (" + hop.getSource() + ", " + hop.getDestination() + ", " + hop.getLoad() + ");");
+            pstmt.execute();
+            ret = ReturnValue.OK;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ret = checkSQLException(e);
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return ret;
     }
 
     /**
@@ -164,7 +195,34 @@ public class Solution {
      */
     public static Hop getHop(int source, int destination)
     {
-        return null;
+        Hop hop;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = connection.prepareStatement("SELECT * FROM hops" +
+                    " WHERE source = " + source + " AND destination = " + destination + ";");
+            ResultSet result = pstmt.executeQuery();
+            if (result.isBeforeFirst())
+                hop = new Hop(result.getInt("source"), result.getInt("destination"), result.getInt("load"));
+            else //hop with such source and destination doesn't exist
+                hop = Hop.badHop;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            hop = Hop.badHop;
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return hop;
     }
 
 
@@ -180,7 +238,58 @@ public class Solution {
      */
     public static ReturnValue updateHopLoad(Hop hop)
     {
-        return null;
+        ReturnValue ret;
+        if (null == hop)
+        {
+            //todo: should this be changed to bad params?
+            return ReturnValue.BAD_PARAMS;
+        }
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+//        try {
+//            pstmt = connection.prepareStatement("SELECT * FROM hops" +
+//                    " WHERE source = " + hop.getSource() + " AND destination = " + hop.getDestination() + ";");
+//            ResultSet result = pstmt.executeQuery();
+//            if (!result.isBeforeFirst()) //No such hop in the table
+//                ret = ReturnValue.NOT_EXISTS;
+//            else {
+//                //todo: why not put those two sql statements in the same one (one statement and not 2) same applies to delete
+//                pstmt = connection.prepareStatement("UPDATE hops " +
+//                        " SET load = " + hop.getLoad() +
+//                        " WHERE source = " + hop.getSource() + " AND destination = " + hop.getDestination() + ";");
+//                pstmt.execute();
+//                ret = ReturnValue.OK;
+//            }
+        try {
+            pstmt = connection.prepareStatement("UPDATE hops " +
+                    " SET load = " + hop.getLoad() +
+                    " WHERE source = " + hop.getSource() + " AND destination = " + hop.getDestination() + ";");
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated != 0)
+            {
+                ret = ReturnValue.OK;
+            }
+            else //no such hop in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ret = checkSQLException(e);
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return ret;
     }
 
 	
@@ -195,8 +304,50 @@ public class Solution {
      */
     public static ReturnValue deleteHop(int source, int destination)
     {
-       
-        return null;
+        ReturnValue ret;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+//        try {
+//            pstmt = connection.prepareStatement("SELECT * FROM hops" +
+//                    " WHERE source = " + source + " AND destination = " + destination + ";");
+//            ResultSet result = pstmt.executeQuery();
+//            if (!result.isBeforeFirst()) //No such hop in the table
+//                ret = ReturnValue.NOT_EXISTS;
+//            else {
+//                pstmt = connection.prepareStatement("DELETE FROM users " +
+//                        " WHERE source = " + source + " AND destination = " + destination + ";");
+//                pstmt.execute();
+//                ret = ReturnValue.OK;
+//            }
+        try {
+            pstmt = connection.prepareStatement("DELETE FROM users " +
+                    " WHERE source = " + source + " AND destination = " + destination + ";");
+            int rowsDeleted = pstmt.executeUpdate();
+            if (rowsDeleted != 0)
+            {
+                ret = ReturnValue.OK;
+            }
+            else //no such hop in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            ret = checkSQLException(e);
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return ret;
     }
 
     /**
@@ -311,7 +462,7 @@ public class Solution {
                 //todo: make sure previous message is overridden.
                 pstmt = connection.prepareStatement("UPDATE users " +
                         " SET source = " + user.getSource() + ", destination = " + user.getDestination() +
-                        ", WHERE id = " + user.getId() + ";");
+                        " WHERE id = " + user.getId() + ";");
                 pstmt.execute();
                 ret = ReturnValue.OK;
             }
