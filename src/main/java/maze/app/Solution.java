@@ -80,14 +80,13 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("DELETE FROM hops");
+            pstmt = connection.prepareStatement("DELETE FROM users");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         try {
-            //todo: make sure old data in pstmt is overridden
-            pstmt = connection.prepareStatement("DELETE FROM users");
+            pstmt = connection.prepareStatement("DELETE FROM hops");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -650,25 +649,23 @@ public class Solution {
                         "CREATE VIEW level"+(i+1)+" (s, " + destination_attribute+"total_load) AS " +
                                 "SELECT h1.s," + dests + "h2.destination, h1.total_load+h2.actual_load " +
                                 "FROM level"+i+" h1 LEFT OUTER JOIN hops_actual_load h2 " +
-                                "ON h2.destination <> h1.s" + diff_dest +
+                                "ON h2.destination <> h1.s AND h2.destination <> "+ destination + diff_dest +
                                 ";"
                 );
                 pstmt.execute();
-
-                pstmt = connection.prepareStatement(
-                        "DROP VIEW level"+i+";");
-                pstmt.execute();
+                //todo: has to drop the views, commented for testing
+//                pstmt = connection.prepareStatement(
+//                        "DROP VIEW level"+i+";");
+//                pstmt.execute();
             }
 
             String final_query = "";
             int i;
-            for (i=maxLength; i>2; i-- )
+            for (i=maxLength; i>1; i-- )
             {
-                final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n" +
                         "UNION ALL\n";
-                destination_attribute.replace("d"+i,"NULL as d"+i);
+                destination_attribute = destination_attribute.replace("d"+i,"NULL as d"+i);
             }
-            final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n"
                             + "ORDER BY total_load;";
             pstmt = connection.prepareStatement(final_query);
             ResultSet result = pstmt.executeQuery();
