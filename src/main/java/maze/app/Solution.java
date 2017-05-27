@@ -682,10 +682,26 @@ public class Solution {
                         result.getInt("d1"),
                         result.getInt("total_load"));
                 tempPath.addHop(hop);
+                result.getInt("d2");
+                int j = 1;
+                while (!result.wasNull())
+                {
+                    Integer temp_source = result.getInt("d"+j);
+                    Integer temp_destination = result.getInt("d"+(j+1));
+                    Hop temp_hop = new Hop(temp_source, temp_destination);
+                    pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
+                            " WHERE source = " + temp_source + " AND destination = " + temp_destination + ";");
+                    ResultSet temp_result = pstmt.executeQuery();
+                    temp_hop.setLoad(temp_result.getInt("actual_load"));
+                    tempPath.addHop(temp_hop);
+                    result.getInt("d"+(j+2));
+                }
+                pathsList.addPath(tempPath);
             }
 
         } catch (SQLException e) {
             e.printStackTrace();
+            pathsList = null;
         }
         finally {
             try {
