@@ -663,9 +663,11 @@ public class Solution {
             int i;
             for (i=maxLength; i>1; i-- )
             {
+                final_query+="SELECT s," + destination_attribute + " total_load FROM level"+i+"_path\n" +
                         "UNION ALL\n";
                 destination_attribute = destination_attribute.replace("d"+i,"NULL as d"+i);
             }
+            final_query+="SELECT s," + destination_attribute + " total_load FROM level"+i+"_path\n"
                             + "ORDER BY total_load;";
             pstmt = connection.prepareStatement(final_query);
             ResultSet result = pstmt.executeQuery();
