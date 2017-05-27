@@ -546,13 +546,15 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
+            //todo: how do you that "COUNT(*)+1" counts the users and not all the lines?
+            //todo: you can also use "LIMIT K" to limit the result(from page 38 in lecture 4) (will remove the i<k condition)
             pstmt = connection.prepareStatement("SELECT hops.source, hops.destination, " +
                     " (COUNT(*)+1)*hops.load AS \"actual_load\" " +
                     "FROM hops LEFT OUTER JOIN users " +
                     "ON (hops.source = users.source AND hops.destination = users.destination) " +
                     "GROUP BY (hops.source, hops.destination) " +
                     "HAVING count(*) >= " + usersThreshold +
-                    "ORDER BY actual_load DESC;");
+                    " ORDER BY actual_load DESC;");
             ResultSet result = pstmt.executeQuery();
             topK = new ArrayList<>(k);
             while (result.next() && i < k)
@@ -595,7 +597,108 @@ public class Solution {
      */
     public static PathsList getAllPaths(int source, int destination, int maxLength)
     {
-        return  null;
+        PathsList pathsList = null;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = connection.prepareStatement(
+                    "CREATE VIEW hops_actual_load (source, destination, actual_load) AS " +
+                    "SELECT hops.source, hops.destination, (COUNT(*)+1)*hops.load AS \"actual_load\" " +
+                    "FROM hops LEFT OUTER JOIN users " +
+                    "ON (hops.source = users.source AND hops.destination = users.destination) " +
+                    "GROUP BY (hops.source, hops.destination) "
+            );
+            pstmt.execute();
+
+            pstmt = connection.prepareStatement(
+                    "CREATE VIEW level1_path (s, d1, total_load) AS " +
+                            "SELECT * " +
+                            "FROM hops_actual_load " +
+                            "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination=" + destination +
+                            ";"
+            );
+            pstmt.execute();
+
+            pstmt = connection.prepareStatement(
+                    "CREATE VIEW level1 (s, d1, total_load) AS " +
+                            "SELECT * " +
+                            "FROM hops_actual_load " +
+                            "WHERE hops_actual_load.source=" + source +
+                            ";"
+            );
+            pstmt.execute();
+            String destination_attribute = "d1, ";
+            String dests = "";
+            String diff_dest = "";
+            for (int i=1; i<maxLength; i++)
+            {
+                destination_attribute += "d"+Integer.toString(i+1)+", ";
+                dests += "h1.d" +i+", ";
+                pstmt = connection.prepareStatement(
+                        "CREATE VIEW level"+(i+1)+"_path (s, " + destination_attribute+"total_load) AS " +
+                                "SELECT h1.s," + dests + "h2.destination, h1.total_load+h2.actual_load " +
+                                "FROM level"+i+" h1 LEFT OUTER JOIN hops_actual_load h2 " +
+                                "ON h1.d"+ i + "=h2.source " +
+                                "WHERE h2.destination="+ destination +" " +
+                                ";"
+                );
+                pstmt.execute();
+
+                diff_dest += " AND h2.destination <> h1.d"+i+" ";
+                pstmt = connection.prepareStatement(
+                        "CREATE VIEW level"+(i+1)+" (s, " + destination_attribute+"total_load) AS " +
+                                "SELECT h1.s," + dests + "h2.destination, h1.total_load+h2.actual_load " +
+                                "FROM level"+i+" h1 LEFT OUTER JOIN hops_actual_load h2 " +
+                                "ON h2.destination <> h1.s" + diff_dest +
+                                ";"
+                );
+                pstmt.execute();
+
+                pstmt = connection.prepareStatement(
+                        "DROP VIEW level"+i+";");
+                pstmt.execute();
+            }
+
+            String final_query = "";
+            int i;
+            for (i=maxLength; i>2; i-- )
+            {
+                final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n" +
+                        "UNION ALL\n";
+                destination_attribute.replace("d"+i,"NULL as d"+i);
+            }
+            final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n"
+                            + "ORDER BY total_load;";
+            pstmt = connection.prepareStatement(final_query);
+            ResultSet result = pstmt.executeQuery();
+
+            pathsList = new PathsList();
+            while (result.next())
+            {
+                //todo: complete this, not sure how to do it (there are NULLs in the paths) and if all the way to here is correct
+                Path tempPath = new Path();
+                Hop hop = new Hop(result.getInt("s"),
+                        result.getInt("d1"),
+                        result.getInt("total_load"));
+                tempPath.addHop(hop);
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return pathsList;
     }
 
     /**
