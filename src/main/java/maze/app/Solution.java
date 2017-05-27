@@ -113,13 +113,13 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users CASCADE");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops CASCADE");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -688,15 +688,25 @@ public class Solution {
                     Integer temp_source = result.getInt("d"+j);
                     Integer temp_destination = result.getInt("d"+(j+1));
                     Hop temp_hop = new Hop(temp_source, temp_destination);
-                    pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
+                    PreparedStatement temp_pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
                             " WHERE source = " + temp_source + " AND destination = " + temp_destination + ";");
-                    ResultSet temp_result = pstmt.executeQuery();
-                    temp_hop.setLoad(temp_result.getInt("actual_load"));
+                    ResultSet temp_result = temp_pstmt.executeQuery();
+                    if (temp_result.isBeforeFirst()) {
+                        temp_result.next();
+                        temp_hop.setLoad(temp_result.getInt("actual_load"));
+                    }
+                    else{
+                        //todo: isn't supposed to get here
+                    }
                     tempPath.addHop(temp_hop);
-                    result.getInt("d"+(j+2));
+//                    result.getInt("d"+(j+2));
+                    j++;
                 }
                 pathsList.addPath(tempPath);
             }
+
+                pstmt = connection.prepareStatement("DROP VIEW hops_actual_load CASCADE ;");
+                pstmt.execute();
 
         } catch (SQLException e) {
             e.printStackTrace();
