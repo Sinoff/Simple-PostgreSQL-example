@@ -80,14 +80,13 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("DELETE FROM hops");
+            pstmt = connection.prepareStatement("DELETE FROM users");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         try {
-            //todo: make sure old data in pstmt is overridden
-            pstmt = connection.prepareStatement("DELETE FROM users");
+            pstmt = connection.prepareStatement("DELETE FROM hops");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -114,13 +113,13 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users CASCADE");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops CASCADE");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -650,25 +649,25 @@ public class Solution {
                         "CREATE VIEW level"+(i+1)+" (s, " + destination_attribute+"total_load) AS " +
                                 "SELECT h1.s," + dests + "h2.destination, h1.total_load+h2.actual_load " +
                                 "FROM level"+i+" h1 LEFT OUTER JOIN hops_actual_load h2 " +
-                                "ON h2.destination <> h1.s" + diff_dest +
+                                "ON h2.destination <> h1.s AND h2.destination <> "+ destination + diff_dest +
                                 ";"
                 );
                 pstmt.execute();
-
-                pstmt = connection.prepareStatement(
-                        "DROP VIEW level"+i+";");
-                pstmt.execute();
+                //todo: has to drop the views, commented for testing
+//                pstmt = connection.prepareStatement(
+//                        "DROP VIEW level"+i+";");
+//                pstmt.execute();
             }
 
             String final_query = "";
             int i;
-            for (i=maxLength; i>2; i-- )
+            for (i=maxLength; i>1; i-- )
             {
-                final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n" +
+                final_query+="SELECT s," + destination_attribute + " total_load FROM level"+i+"_path\n" +
                         "UNION ALL\n";
-                destination_attribute.replace("d"+i,"NULL as d"+i);
+                destination_attribute = destination_attribute.replace("d"+i,"NULL as d"+i);
             }
-            final_query+="SELECT " + destination_attribute + " FROM level"+i+"_path\n"
+            final_query+="SELECT s," + destination_attribute + " total_load FROM level"+i+"_path\n"
                             + "ORDER BY total_load;";
             pstmt = connection.prepareStatement(final_query);
             ResultSet result = pstmt.executeQuery();
@@ -682,10 +681,36 @@ public class Solution {
                         result.getInt("d1"),
                         result.getInt("total_load"));
                 tempPath.addHop(hop);
+                result.getInt("d2");
+                int j = 1;
+                while (!result.wasNull())
+                {
+                    Integer temp_source = result.getInt("d"+j);
+                    Integer temp_destination = result.getInt("d"+(j+1));
+                    Hop temp_hop = new Hop(temp_source, temp_destination);
+                    PreparedStatement temp_pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
+                            " WHERE source = " + temp_source + " AND destination = " + temp_destination + ";");
+                    ResultSet temp_result = temp_pstmt.executeQuery();
+                    if (temp_result.isBeforeFirst()) {
+                        temp_result.next();
+                        temp_hop.setLoad(temp_result.getInt("actual_load"));
+                    }
+                    else{
+                        //todo: isn't supposed to get here
+                    }
+                    tempPath.addHop(temp_hop);
+//                    result.getInt("d"+(j+2));
+                    j++;
+                }
+                pathsList.addPath(tempPath);
             }
+
+                pstmt = connection.prepareStatement("DROP VIEW hops_actual_load CASCADE ;");
+                pstmt.execute();
 
         } catch (SQLException e) {
             e.printStackTrace();
+            pathsList = null;
         }
         finally {
             try {
