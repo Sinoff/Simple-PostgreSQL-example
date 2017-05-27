@@ -6,3 +6,4 @@ config.properties
 ~*
 src/main/resources/config.properties
 .idea/workspace.xml
+.idea\workspace.xml

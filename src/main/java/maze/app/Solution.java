@@ -33,7 +33,7 @@ public class Solution {
                     "    destination INTEGER CHECK (destination >= 1),\n" +
                     "    load INTEGER CHECK (load >= 1),\n" +
                     "    PRIMARY KEY (source, destination),\n" +
-                    "    CHECK (source <> destination),\n" +
+                    "    CHECK (source <> destination)" +
                     ")");
             pstmt.execute();
         } catch (SQLException e) {
@@ -41,7 +41,6 @@ public class Solution {
         }
         try {
             //todo: make sure old data in pstmt is overridden
-            //todo: maybe foreign key has to include both of them together (with comma separating)
             //not implicitly checking source != dest and source >=1, dest >=1, since it's checked by (referenced) hops.
             pstmt = connection.prepareStatement("CREATE TABLE users\n" +
                     "(\n" +
@@ -49,11 +48,9 @@ public class Solution {
                     "    source INTEGER,\n" +
                     "    destination INTEGER ,\n" +
                     "    PRIMARY KEY (id),\n" +
-                    "    FOREIGN KEY (source)\n" +
-                    "    REFERENCES hops (source),\n" +
-                    "    FOREIGN KEY (destination)\n" +
-                    "    REFERENCES hops (destination),\n" +
-                    "    CHECK (id > 0)\n" +
+                    "    FOREIGN KEY (source, destination)\n" +
+                    "    REFERENCES hops (source, destination),\n" +
+                    "    CHECK (id > 0)" +
                     ")");
             pstmt.execute();
         } catch (SQLException e) {
@@ -117,13 +114,13 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
         try {
-            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS users");
+            pstmt = connection.prepareStatement("DROP TABLE IF EXISTS hops");
             pstmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
@@ -202,8 +199,10 @@ public class Solution {
             pstmt = connection.prepareStatement("SELECT * FROM hops" +
                     " WHERE source = " + source + " AND destination = " + destination + ";");
             ResultSet result = pstmt.executeQuery();
-            if (result.isBeforeFirst())
+            if (result.isBeforeFirst()) {
+                result.next();
                 hop = new Hop(result.getInt("source"), result.getInt("destination"), result.getInt("load"));
+            }
             else //hop with such source and destination doesn't exist
                 hop = Hop.badHop;
         } catch (SQLException e) {
@@ -410,8 +409,10 @@ public class Solution {
             pstmt = connection.prepareStatement("SELECT * FROM users" +
                     " WHERE id = " + id +";");
             ResultSet result = pstmt.executeQuery();
-            if (result.isBeforeFirst())
+            if (result.isBeforeFirst()) {
+                result.next();
                 user = new User(result.getInt("id"), result.getInt("source"), result.getInt("destination"));
+            }
             else //id doesn't exist
                 user = User.badUser;
         } catch (SQLException e) {
@@ -453,18 +454,17 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("SELECT * FROM users " +
-                    "WHERE id = " + user.getId() +";");
-            ResultSet result = pstmt.executeQuery();
-            if (!result.isBeforeFirst()) //No such id in schema
-                ret = ReturnValue.NOT_EXISTS;
-            else {
-                //todo: make sure previous message is overridden.
-                pstmt = connection.prepareStatement("UPDATE users " +
-                        " SET source = " + user.getSource() + ", destination = " + user.getDestination() +
-                        " WHERE id = " + user.getId() + ";");
-                pstmt.execute();
+            pstmt = connection.prepareStatement("UPDATE users " +
+                    " SET source = " + user.getSource() + ", destination = " + user.getDestination() +
+                    " WHERE id = " + user.getId() + ";");
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated != 0)
+            {
                 ret = ReturnValue.OK;
+            }
+            else //no such user in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -499,16 +499,16 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("SELECT * FROM users " +
+            pstmt = connection.prepareStatement("DELETE FROM users " +
                     "WHERE id = " + userId + ";");
-            ResultSet result = pstmt.executeQuery();
-            if (!result.isBeforeFirst()) //No such id in schema
-                ret = ReturnValue.NOT_EXISTS;
-            else {
-                pstmt = connection.prepareStatement("DELETE FROM users " +
-                        "WHERE id = " + userId + ";");
-                pstmt.execute();
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated != 0)
+            {
                 ret = ReturnValue.OK;
+            }
+            else //no such user in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -541,7 +541,46 @@ public class Solution {
      */
     public static ArrayList<Hop> topKLoadedHops(int k, int usersThreshold)
     {
-       return null;
+        ArrayList<Hop> topK;
+        int i = 0;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = connection.prepareStatement("SELECT hops.source, hops.destination, " +
+                    " (COUNT(*)+1)*hops.load AS \"actual_load\" " +
+                    "FROM hops LEFT OUTER JOIN users " +
+                    "ON (hops.source = users.source AND hops.destination = users.destination) " +
+                    "GROUP BY (hops.source, hops.destination) " +
+                    "HAVING count(*) >= " + usersThreshold +
+                    "ORDER BY actual_load DESC;");
+            ResultSet result = pstmt.executeQuery();
+            topK = new ArrayList<>(k);
+            while (result.next() && i < k)
+            {
+                Hop hop = new Hop(result.getInt("source"),
+                        result.getInt("destination"),
+                        result.getInt("actual_load"));
+                topK.add(hop);
+                i++;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            //todo - decided to return null if there was a problem - is this the correct behavior?
+            topK = null;
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return topK;
     }
 
 
