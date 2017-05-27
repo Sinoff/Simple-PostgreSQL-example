@@ -454,18 +454,17 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("SELECT * FROM users " +
-                    "WHERE id = " + user.getId() +";");
-            ResultSet result = pstmt.executeQuery();
-            if (!result.isBeforeFirst()) //No such id in schema
-                ret = ReturnValue.NOT_EXISTS;
-            else {
-                //todo: make sure previous message is overridden.
-                pstmt = connection.prepareStatement("UPDATE users " +
-                        " SET source = " + user.getSource() + ", destination = " + user.getDestination() +
-                        " WHERE id = " + user.getId() + ";");
-                pstmt.execute();
+            pstmt = connection.prepareStatement("UPDATE users " +
+                    " SET source = " + user.getSource() + ", destination = " + user.getDestination() +
+                    " WHERE id = " + user.getId() + ";");
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated != 0)
+            {
                 ret = ReturnValue.OK;
+            }
+            else //no such user in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -500,16 +499,16 @@ public class Solution {
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement("SELECT * FROM users " +
+            pstmt = connection.prepareStatement("DELETE FROM users " +
                     "WHERE id = " + userId + ";");
-            ResultSet result = pstmt.executeQuery();
-            if (!result.isBeforeFirst()) //No such id in schema
-                ret = ReturnValue.NOT_EXISTS;
-            else {
-                pstmt = connection.prepareStatement("DELETE FROM users " +
-                        "WHERE id = " + userId + ";");
-                pstmt.execute();
+            int rowsUpdated = pstmt.executeUpdate();
+            if (rowsUpdated != 0)
+            {
                 ret = ReturnValue.OK;
+            }
+            else //no such user in the table
+            {
+                ret = ReturnValue.NOT_EXISTS;
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -542,7 +541,46 @@ public class Solution {
      */
     public static ArrayList<Hop> topKLoadedHops(int k, int usersThreshold)
     {
-       return null;
+        ArrayList<Hop> topK;
+        int i = 0;
+        Connection connection = DBConnector.getConnection();
+        PreparedStatement pstmt = null;
+        try {
+            pstmt = connection.prepareStatement("SELECT hops.source, hops.destination, " +
+                    " (COUNT(*)+1)*hops.load AS \"actual_load\" " +
+                    "FROM hops LEFT OUTER JOIN users " +
+                    "ON (hops.source = users.source AND hops.destination = users.destination) " +
+                    "GROUP BY (hops.source, hops.destination) " +
+                    "HAVING count(*) >= " + usersThreshold +
+                    "ORDER BY actual_load DESC;");
+            ResultSet result = pstmt.executeQuery();
+            topK = new ArrayList<>(k);
+            while (result.next() && i < k)
+            {
+                Hop hop = new Hop(result.getInt("source"),
+                        result.getInt("destination"),
+                        result.getInt("actual_load"));
+                topK.add(hop);
+                i++;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            //todo - decided to return null if there was a problem - is this the correct behavior?
+            topK = null;
+        }
+        finally {
+            try {
+                pstmt.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            try {
+                connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+        return topK;
     }
 
 
