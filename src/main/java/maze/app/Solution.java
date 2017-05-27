@@ -445,6 +445,7 @@ public class Solution {
      */
     public static ReturnValue updateUserHop(User user)
     {
+        //todo: understand when can we get BAD_PARAMS
         ReturnValue ret;
         if (null == user)
         {
