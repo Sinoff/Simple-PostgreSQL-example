@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 /**
  * Created by rssinoff on 5/25/2017.
  */
-public class addUserTest {
+public class addUserTests {
 
     @BeforeClass
     public static void createTables() {

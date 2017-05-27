@@ -13,7 +13,7 @@ import static org.junit.Assert.*;
 /**
  * Created by dvird on 17/04/22.
  */
-public class SimpleSolutionTest {
+public class SimpleSolutionTests {
 
     @BeforeClass
     public static void createTables()

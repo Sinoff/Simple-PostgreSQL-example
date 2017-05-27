@@ -6,3 +6,5 @@ Simply adding and getting a Hop.
 Tests to check users DB:
 1. addUser tests
 2. getUser tests
+3. updateUser tests
+4. deleteUser tests
