@@ -529,18 +529,15 @@ public class Solution {
     public static ArrayList<Hop> topKLoadedHops(int k, int usersThreshold)
     {
         ArrayList<Hop> topK;
-        int i = 0;
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            //todo: how do you that "COUNT(*)+1" counts the users and not all the lines?
-            //todo: you can also use "LIMIT K" to limit the result(from page 38 in lecture 4) (will remove the i<k condition)
             pstmt = connection.prepareStatement("SELECT hops.source, hops.destination, " +
-                    " (COUNT(*)+1)*hops.load AS \"actual_load\" " +
+                    " (COUNT(users.id)+1)*hops.load AS \"actual_load\" " +
                     "FROM hops LEFT OUTER JOIN users " +
                     "ON (hops.source = users.source AND hops.destination = users.destination) " +
                     "GROUP BY (hops.source, hops.destination) " +
-                    "HAVING count(*) >= " + usersThreshold +
+                    "HAVING count(users.id) >= " + usersThreshold +
                     " ORDER BY actual_load DESC " +
                     "Limit " + k + ";");
             ResultSet result = pstmt.executeQuery();
