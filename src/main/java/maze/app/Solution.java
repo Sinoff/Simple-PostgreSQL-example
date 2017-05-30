@@ -667,8 +667,6 @@ public class Solution {
                         //todo: isn't supposed to get here
                     }
                     tempPath.addHop(temp_hop);
-//                    result.getInt("d"+(j+2));
-                    j++;
                 }
                 pathsList.addPath(tempPath);
             }
@@ -693,6 +691,56 @@ public class Solution {
             }
         }
         return pathsList;
+    }
+
+    /**
+     * Create two views for path sized 1 (has only one hop)
+     * explanation for each view is written above their SQL statement
+     * @param connection A connection object to the DB
+     * @param pstmt A prepare statement object
+     * @param source source vertex
+     * @param destination destination vertex
+     * @throws SQLException
+     */
+    private static void createLevelOneViews(Connection connection, PreparedStatement pstmt, int source, int destination) throws SQLException {
+        //Create a view: level1_path with paths in size 1, all the paths in this view are valid paths
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW level1_path (s, d1, total_load) AS " +
+                        "SELECT * " +
+                        "FROM hops_actual_load " +
+                        "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination=" + destination +
+                        ";"
+        );
+        pstmt.execute();
+
+        //Create a view: level1 with paths in size that starts from the required source, but doesn't end in the destination,
+        //                  this (and the conditions in the next levels) guarantees us that there are no cycles in a
+        //                  bigger size paths
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW level1 (s, d1, total_load) AS " +
+                        "SELECT * " +
+                        "FROM hops_actual_load " +
+                        "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination <> " + destination +
+                        ";"
+        );
+        pstmt.execute();
+    }
+
+    /**
+     * create a view with the actual loads according to the users in the DB
+     * @param connection A connection object to the DB
+     * @param pstmt A prepare statement object
+     * @throws SQLException
+     */
+    public static void createActualLoadView(Connection connection, PreparedStatement pstmt) throws SQLException {
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW hops_actual_load (source, destination, actual_load) AS " +
+                        "SELECT hops.source, hops.destination, (COUNT(users.id)+1)*hops.load AS \"actual_load\" " +
+                        "FROM hops LEFT OUTER JOIN users " +
+                        "ON (hops.source = users.source AND hops.destination = users.destination) " +
+                        "GROUP BY (hops.source, hops.destination) "
+        );
+        pstmt.execute();
     }
 
     /**
