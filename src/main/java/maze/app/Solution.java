@@ -38,7 +38,6 @@ public class Solution {
             e.printStackTrace();
         }
         try {
-            //not implicitly checking source != dest and source >=1, dest >=1, since it's checked by (referenced) hops.
             pstmt = connection.prepareStatement("CREATE TABLE users\n" +
                     "(\n" +
                     "    id INTEGER,\n" +
@@ -289,20 +288,8 @@ public class Solution {
         ReturnValue ret;
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-//        try {
-//            pstmt = connection.prepareStatement("SELECT * FROM hops" +
-//                    " WHERE source = " + source + " AND destination = " + destination + ";");
-//            ResultSet result = pstmt.executeQuery();
-//            if (!result.isBeforeFirst()) //No such hop in the table
-//                ret = ReturnValue.NOT_EXISTS;
-//            else {
-//                pstmt = connection.prepareStatement("DELETE FROM users " +
-//                        " WHERE source = " + source + " AND destination = " + destination + ";");
-//                pstmt.execute();
-//                ret = ReturnValue.OK;
-//            }
         try {
-            pstmt = connection.prepareStatement("DELETE FROM users " +
+            pstmt = connection.prepareStatement("DELETE FROM hops " +
                     " WHERE source = " + source + " AND destination = " + destination + ";");
             int rowsDeleted = pstmt.executeUpdate();
             if (rowsDeleted != 0)
