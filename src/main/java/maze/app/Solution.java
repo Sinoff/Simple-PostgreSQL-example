@@ -569,35 +569,21 @@ public class Solution {
     public static PathsList getAllPaths(int source, int destination, int maxLength)
     {
         PathsList pathsList = null;
+        if (maxLength < 1)
+        { //maxLength has to be greater or equal to 1
+            return pathsList;
+        }
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            pstmt = connection.prepareStatement(
-                    "CREATE VIEW hops_actual_load (source, destination, actual_load) AS " +
-                    "SELECT hops.source, hops.destination, (COUNT(*)+1)*hops.load AS \"actual_load\" " +
-                    "FROM hops LEFT OUTER JOIN users " +
-                    "ON (hops.source = users.source AND hops.destination = users.destination) " +
-                    "GROUP BY (hops.source, hops.destination) "
-            );
-            pstmt.execute();
 
-            pstmt = connection.prepareStatement(
-                    "CREATE VIEW level1_path (s, d1, total_load) AS " +
-                            "SELECT * " +
-                            "FROM hops_actual_load " +
-                            "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination=" + destination +
-                            ";"
-            );
-            pstmt.execute();
+            //First, create a view of the hops with the actual load (according to the users table)
+            createActualLoadView(connection, pstmt);
 
-            pstmt = connection.prepareStatement(
-                    "CREATE VIEW level1 (s, d1, total_load) AS " +
-                            "SELECT * " +
-                            "FROM hops_actual_load " +
-                            "WHERE hops_actual_load.source=" + source +
-                            ";"
-            );
-            pstmt.execute();
+            //Because of maxLength > 0, there must be at least one level (which includes all the paths in size 1) of paths
+            //Create first level path:
+            createLevelOneViews(connection, pstmt, source, destination);
+
             String destination_attribute = "d1, ";
             String dests = "";
             String diff_dest = "";
@@ -621,13 +607,10 @@ public class Solution {
                                 "SELECT h1.s," + dests + "h2.destination, h1.total_load+h2.actual_load " +
                                 "FROM level"+i+" h1 LEFT OUTER JOIN hops_actual_load h2 " +
                                 "ON h2.destination <> h1.s AND h2.destination <> "+ destination + diff_dest +
+                                " WHERE h1.d"+i+"=h2.source" +
                                 ";"
                 );
                 pstmt.execute();
-                //todo: has to drop the views, commented for testing
-//                pstmt = connection.prepareStatement(
-//                        "DROP VIEW level"+i+";");
-//                pstmt.execute();
             }
 
             String final_query = "";
@@ -646,22 +629,36 @@ public class Solution {
             pathsList = new PathsList();
             while (result.next())
             {
-                //todo: complete this, not sure how to do it (there are NULLs in the paths) and if all the way to here is correct
                 Path tempPath = new Path();
                 Hop hop = new Hop(result.getInt("s"),
-                        result.getInt("d1"),
-                        result.getInt("total_load"));
+                        result.getInt("d1"));
+                PreparedStatement temp_pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
+                        " WHERE source = " + result.getInt("s") + " AND destination = " + result.getInt("d1") + ";");
+                ResultSet temp_result = temp_pstmt.executeQuery();
+                if (temp_result.isBeforeFirst()) {
+                    temp_result.next();
+                    hop.setLoad(temp_result.getInt("actual_load"));
+                }
                 tempPath.addHop(hop);
-                result.getInt("d2");
-                int j = 1;
-                while (!result.wasNull())
-                {
+//                result.getInt("d2");
+//                int j = 1;
+                for (int j=1; j<maxLength; j++){
+//                while (!result.wasNull() && j<maxLength)
+//                {
                     Integer temp_source = result.getInt("d"+j);
+//                    if (result.wasNull())
+//                    {
+//                        break;
+//                    }
                     Integer temp_destination = result.getInt("d"+(j+1));
+                    if (result.wasNull())
+                    {
+                        break;
+                    }
                     Hop temp_hop = new Hop(temp_source, temp_destination);
-                    PreparedStatement temp_pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
+                    temp_pstmt = connection.prepareStatement("SELECT actual_load FROM hops_actual_load" +
                             " WHERE source = " + temp_source + " AND destination = " + temp_destination + ";");
-                    ResultSet temp_result = temp_pstmt.executeQuery();
+                    temp_result = temp_pstmt.executeQuery();
                     if (temp_result.isBeforeFirst()) {
                         temp_result.next();
                         temp_hop.setLoad(temp_result.getInt("actual_load"));
@@ -670,8 +667,6 @@ public class Solution {
                         //todo: isn't supposed to get here
                     }
                     tempPath.addHop(temp_hop);
-//                    result.getInt("d"+(j+2));
-                    j++;
                 }
                 pathsList.addPath(tempPath);
             }
@@ -696,6 +691,56 @@ public class Solution {
             }
         }
         return pathsList;
+    }
+
+    /**
+     * Create two views for path sized 1 (has only one hop)
+     * explanation for each view is written above their SQL statement
+     * @param connection A connection object to the DB
+     * @param pstmt A prepare statement object
+     * @param source source vertex
+     * @param destination destination vertex
+     * @throws SQLException
+     */
+    private static void createLevelOneViews(Connection connection, PreparedStatement pstmt, int source, int destination) throws SQLException {
+        //Create a view: level1_path with paths in size 1, all the paths in this view are valid paths
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW level1_path (s, d1, total_load) AS " +
+                        "SELECT * " +
+                        "FROM hops_actual_load " +
+                        "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination=" + destination +
+                        ";"
+        );
+        pstmt.execute();
+
+        //Create a view: level1 with paths in size that starts from the required source, but doesn't end in the destination,
+        //                  this (and the conditions in the next levels) guarantees us that there are no cycles in a
+        //                  bigger size paths
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW level1 (s, d1, total_load) AS " +
+                        "SELECT * " +
+                        "FROM hops_actual_load " +
+                        "WHERE hops_actual_load.source=" + source + " AND hops_actual_load.destination <> " + destination +
+                        ";"
+        );
+        pstmt.execute();
+    }
+
+    /**
+     * create a view with the actual loads according to the users in the DB
+     * @param connection A connection object to the DB
+     * @param pstmt A prepare statement object
+     * @throws SQLException
+     */
+    public static void createActualLoadView(Connection connection, PreparedStatement pstmt) throws SQLException {
+        pstmt = connection.prepareStatement(
+                "CREATE VIEW hops_actual_load (source, destination, actual_load) AS " +
+                        "SELECT hops.source, hops.destination, (COUNT(users.id)+1)*hops.load AS \"actual_load\" " +
+                        "FROM hops LEFT OUTER JOIN users " +
+                        "ON (hops.source = users.source AND hops.destination = users.destination) " +
+                        "GROUP BY (hops.source, hops.destination) "
+        );
+        pstmt.execute();
     }
 
     /**

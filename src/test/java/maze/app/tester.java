@@ -156,7 +156,7 @@ public class tester {
         Solution.addHop(s5);
         Solution.addHop(s6);
         PathsList pathL = Solution.getAllPaths(2,5,3);
-        //System.out.println(pathL.toString());
+//        System.out.println(pathL.toString());
         assert(pathL.get(0).getHop(0).getDestination() == 5);
         assert(pathL.get(2).getHop(0).getDestination() == 3);
         pathL = Solution.getAllPaths(2,5,1);
