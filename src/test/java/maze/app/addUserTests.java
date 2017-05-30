@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 /**
  * Created by rssinoff on 5/25/2017.
  */
-public class addUserTests {
+public class AddUserTests {
 
     @BeforeClass
     public static void createTables() {
@@ -46,18 +46,17 @@ public class addUserTests {
         int destination2 = 2;
         int id3 = 3;
 
-        // #1 - NOT_EXISTS
+        // #1 - BAD_PARAMS
         // trying to add a null pointer
         returnValue = Solution.addUser(null);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
         // trying to add user when hop doesn't exist
         User user1 = new User(id1, source1, destination2);
         returnValue = Solution.addUser(user1);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
-
+        assertEquals(BAD_PARAMS, returnValue);
 
         //add Hop
         Hop testHop1 = new Hop(source1, destination2);
@@ -69,29 +68,26 @@ public class addUserTests {
         User userWrongHop1 = new User(id1, source1, destination1);
         returnValue = Solution.addUser(userWrongHop1);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
         // trying to add user when hop doesn't exist (dest != src)
         User userWrongHop2 = new User(id1, source2, destination1);
         returnValue = Solution.addUser(userWrongHop2);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
         // trying to add user with negative source
-        //todo: make sure "Not_Exists" is the desirable result according to Dvir (could also be "BadParams" since negative)
         User userNegativeSource = new User(id1, source_negative1, destination2);
         returnValue = Solution.addUser(userNegativeSource);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
         // trying to add user with negative destination
-        //todo: make sure "Not_Exists" is the desirable result according to Dvir (could also be "BadParams" since negative)
         User userNegativeDestination = new User(id1, source1, destination_negative1);
         returnValue = Solution.addUser(userNegativeDestination);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
-        // #2 - BAD_PARAMS
         // trying to add user with negative id
         User userNegativeId = new User(id_negative1, source1, destination2);
         returnValue = Solution.addUser(userNegativeId);
@@ -110,12 +106,12 @@ public class addUserTests {
         assertNotNull(returnValue);
         assertEquals(OK, returnValue);
 
-        // #4 - NOT_EXISTS (Again...)
+        // #4 - BAD_PARAMS (Again...)
         // adding user with non existing hop, reversed to an existing one (i.e. src = original dest and vice versa).
         User userReversedHop = new User(id3, source2, destination1);
         returnValue = Solution.addUser(userReversedHop);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
         // #5 - ALREADY_EXISTS
         // adding already added user (same User object)
