@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 /**
  * Created by rssinoff on 5/25/2017.
  */
-public class updateUserTests {
+public class UpdateUserTests {
 
     @BeforeClass
     public static void createTables() {
@@ -42,13 +42,16 @@ public class updateUserTests {
         int id2 = 2;
         int source2 = 2;
         int destination2 = 2;
+        int source_negative1 = -1;
+        int destination_negative1 = -1;
 
-        // #1 - NOT_EXISTS
+        // #1 - BAD_PARAMS
         // trying to update a null pointer
         returnValue = Solution.updateUserHop(null);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
+        // #2 - NOT_EXISTS
         // trying to update user when user doesn't exist in DB
         User user1 = new User(id1, source1, destination2);
         returnValue = Solution.updateUserHop(user1);
@@ -65,19 +68,37 @@ public class updateUserTests {
         assertNotNull(returnValue);
         assertEquals(OK, returnValue);
 
-        //update user to non-existing hop
-        User user1_different_hop = new User(id1, source2, destination1);
-        returnValue = Solution.updateUserHop(user1_different_hop);
+        // #3 - BAD_PARAMS (Again...)
+        //update user to non-existing illegal hop (negative source)
+        User user1_negative_source = new User(id1, source_negative1, destination1);
+        returnValue = Solution.updateUserHop(user1_negative_source);
         assertNotNull(returnValue);
-        assertEquals(NOT_EXISTS, returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
+        //update user to non-existing illegal hop (negative destination)
+        User user1_negative_destination = new User(id1, source1, destination_negative1);
+        returnValue = Solution.updateUserHop(user1_negative_destination);
+        assertNotNull(returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
+        //update user to non-existing illegal hop (source == destination)
+        User user1_same_src_dest = new User(id1, source1, destination1);
+        returnValue = Solution.updateUserHop(user1_same_src_dest);
+        assertNotNull(returnValue);
+        assertEquals(BAD_PARAMS, returnValue);
 
+        // #4 - NOT_EXISTS (Again...)
         // trying to update user when user doesn't exist in DB (db not empty)
         User user2 = new User(id2, source1, destination2);
         returnValue = Solution.updateUserHop(user2);
         assertNotNull(returnValue);
         assertEquals(NOT_EXISTS, returnValue);
 
-        // #2 - OK
+        //update user to non-existing hop (but legal)
+        User user1_different_hop = new User(id1, source2, destination1);
+        returnValue = Solution.updateUserHop(user1_different_hop);
+        assertNotNull(returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
+
+        // #5 - OK
         //update user to same hop
         returnValue = Solution.updateUserHop(user1);
         assertNotNull(returnValue);

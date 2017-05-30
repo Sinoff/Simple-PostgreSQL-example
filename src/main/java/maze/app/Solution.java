@@ -14,7 +14,6 @@ import java.util.ArrayList;
  */
 public class Solution {
 
-    //todo: decide if we want to check input in JAVA...
     //todo: what to do if something goes wrong in finally blocks
 
 
@@ -24,7 +23,6 @@ public class Solution {
     public static void createTables()
     {
         Connection connection = DBConnector.getConnection();
-        //todo: update for hop according to requests in homework.
         PreparedStatement pstmt = null;
         try {
             pstmt = connection.prepareStatement("CREATE TABLE hops\n" +
@@ -40,8 +38,6 @@ public class Solution {
             e.printStackTrace();
         }
         try {
-            //todo: make sure old data in pstmt is overridden
-            //not implicitly checking source != dest and source >=1, dest >=1, since it's checked by (referenced) hops.
             pstmt = connection.prepareStatement("CREATE TABLE users\n" +
                     "(\n" +
                     "    id INTEGER,\n" +
@@ -50,7 +46,10 @@ public class Solution {
                     "    PRIMARY KEY (id),\n" +
                     "    FOREIGN KEY (source, destination)\n" +
                     "    REFERENCES hops (source, destination),\n" +
-                    "    CHECK (id > 0)" +
+                    "    CHECK (id > 0)," +
+                    "    CHECK (source > 0)," +
+                    "    CHECK (destination > 0)," +
+                    "    CHECK (source <> destination)" +
                     ")");
             pstmt.execute();
         } catch (SQLException e) {
@@ -152,7 +151,6 @@ public class Solution {
         ReturnValue ret;
         if (null == hop)
         {
-            //todo: should this be changed to bad params?
             return ReturnValue.BAD_PARAMS;
         }
         Connection connection = DBConnector.getConnection();
@@ -239,25 +237,10 @@ public class Solution {
         ReturnValue ret;
         if (null == hop)
         {
-            //todo: should this be changed to bad params?
             return ReturnValue.BAD_PARAMS;
         }
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-//        try {
-//            pstmt = connection.prepareStatement("SELECT * FROM hops" +
-//                    " WHERE source = " + hop.getSource() + " AND destination = " + hop.getDestination() + ";");
-//            ResultSet result = pstmt.executeQuery();
-//            if (!result.isBeforeFirst()) //No such hop in the table
-//                ret = ReturnValue.NOT_EXISTS;
-//            else {
-//                //todo: why not put those two sql statements in the same one (one statement and not 2) same applies to delete
-//                pstmt = connection.prepareStatement("UPDATE hops " +
-//                        " SET load = " + hop.getLoad() +
-//                        " WHERE source = " + hop.getSource() + " AND destination = " + hop.getDestination() + ";");
-//                pstmt.execute();
-//                ret = ReturnValue.OK;
-//            }
         try {
             pstmt = connection.prepareStatement("UPDATE hops " +
                     " SET load = " + hop.getLoad() +
@@ -305,20 +288,8 @@ public class Solution {
         ReturnValue ret;
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
-//        try {
-//            pstmt = connection.prepareStatement("SELECT * FROM hops" +
-//                    " WHERE source = " + source + " AND destination = " + destination + ";");
-//            ResultSet result = pstmt.executeQuery();
-//            if (!result.isBeforeFirst()) //No such hop in the table
-//                ret = ReturnValue.NOT_EXISTS;
-//            else {
-//                pstmt = connection.prepareStatement("DELETE FROM users " +
-//                        " WHERE source = " + source + " AND destination = " + destination + ";");
-//                pstmt.execute();
-//                ret = ReturnValue.OK;
-//            }
         try {
-            pstmt = connection.prepareStatement("DELETE FROM users " +
+            pstmt = connection.prepareStatement("DELETE FROM hops " +
                     " WHERE source = " + source + " AND destination = " + destination + ";");
             int rowsDeleted = pstmt.executeUpdate();
             if (rowsDeleted != 0)
@@ -355,7 +326,7 @@ public class Solution {
      * OK in case of success,
      * BAD_PARAMS in case of illegal input parameters
      * ALREADY_EXISTS if user is already exists
-     * NOT_EXISTS if the given user's Hop does not exists
+     * NOT_EXISTS if the given user's Hop does not exists //todo: according to FAQ update this case returns BAD_PARAMS
      * ERROR in case of other server error
      */
     public static ReturnValue addUser(User user)
@@ -363,8 +334,7 @@ public class Solution {
         ReturnValue ret;
         if (null == user)
         {
-            //todo: should this be changed to bad params?
-            return ReturnValue.NOT_EXISTS;
+            return ReturnValue.BAD_PARAMS;
         }
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
@@ -375,7 +345,13 @@ public class Solution {
             ret = ReturnValue.OK;
         } catch (SQLException e) {
             e.printStackTrace();
-            ret = checkSQLException(e);
+            //Added due to update from FAQ:
+            //"on object creation: Always return BAD_PARAMS since NOT_EXISTS is not an option"
+            if(Integer.valueOf(e.getSQLState()) == PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue())
+            {
+                ret = ReturnValue.BAD_PARAMS;
+            }
+            else ret = checkSQLException(e);
         }
         finally {
             try {
@@ -444,12 +420,10 @@ public class Solution {
      */
     public static ReturnValue updateUserHop(User user)
     {
-        //todo: understand when can we get BAD_PARAMS
         ReturnValue ret;
         if (null == user)
         {
-            //todo: should this be changed to bad params?
-            return ReturnValue.NOT_EXISTS;
+            return ReturnValue.BAD_PARAMS;
         }
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
@@ -542,28 +516,25 @@ public class Solution {
     public static ArrayList<Hop> topKLoadedHops(int k, int usersThreshold)
     {
         ArrayList<Hop> topK;
-        int i = 0;
         Connection connection = DBConnector.getConnection();
         PreparedStatement pstmt = null;
         try {
-            //todo: how do you that "COUNT(*)+1" counts the users and not all the lines?
-            //todo: you can also use "LIMIT K" to limit the result(from page 38 in lecture 4) (will remove the i<k condition)
             pstmt = connection.prepareStatement("SELECT hops.source, hops.destination, " +
-                    " (COUNT(*)+1)*hops.load AS \"actual_load\" " +
+                    " (COUNT(users.id)+1)*hops.load AS \"actual_load\" " +
                     "FROM hops LEFT OUTER JOIN users " +
                     "ON (hops.source = users.source AND hops.destination = users.destination) " +
                     "GROUP BY (hops.source, hops.destination) " +
-                    "HAVING count(*) >= " + usersThreshold +
-                    " ORDER BY actual_load DESC;");
+                    "HAVING count(users.id) >= " + usersThreshold +
+                    " ORDER BY actual_load DESC " +
+                    "Limit " + k + ";");
             ResultSet result = pstmt.executeQuery();
             topK = new ArrayList<>(k);
-            while (result.next() && i < k)
+            while (result.next())
             {
                 Hop hop = new Hop(result.getInt("source"),
                         result.getInt("destination"),
                         result.getInt("actual_load"));
                 topK.add(hop);
-                i++;
             }
         } catch (SQLException e) {
             e.printStackTrace();
