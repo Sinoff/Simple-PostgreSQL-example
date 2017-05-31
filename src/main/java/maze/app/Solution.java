@@ -346,10 +346,11 @@ public class Solution {
         } catch (SQLException e) {
             e.printStackTrace();
             //Added due to update from FAQ:
-            //"on object creation: Always return BAD_PARAMS since NOT_EXISTS is not an option"
+            //"on object creation: Always return BAD_PARAMS since NOT_EXISTS is not an option unless you
+            // create a user with a non existing hop, only in this case you should return NOT_EXISTS"
             if(Integer.valueOf(e.getSQLState()) == PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue())
             {
-                ret = ReturnValue.BAD_PARAMS;
+                ret = ReturnValue.NOT_EXISTS;
             }
             else ret = checkSQLException(e);
         }
@@ -622,7 +623,7 @@ public class Solution {
                 destination_attribute = destination_attribute.replace("d"+i,"NULL as d"+i);
             }
             final_query+="SELECT s," + destination_attribute + " total_load FROM level"+i+"_path\n"
-                            + "ORDER BY total_load;";
+                            + "ORDER BY total_load ASC;";
             pstmt = connection.prepareStatement(final_query);
             ResultSet result = pstmt.executeQuery();
 
@@ -669,6 +670,7 @@ public class Solution {
                     tempPath.addHop(temp_hop);
                 }
                 pathsList.addPath(tempPath);
+                temp_pstmt.close();
             }
 
                 pstmt = connection.prepareStatement("DROP VIEW hops_actual_load CASCADE ;");

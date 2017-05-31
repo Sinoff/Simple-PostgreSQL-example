@@ -56,7 +56,7 @@ public class AddUserTests {
         User user1 = new User(id1, source1, destination2);
         returnValue = Solution.addUser(user1);
         assertNotNull(returnValue);
-        assertEquals(BAD_PARAMS, returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
 
         //add Hop
         Hop testHop1 = new Hop(source1, destination2);
@@ -74,7 +74,7 @@ public class AddUserTests {
         User userWrongHop2 = new User(id1, source2, destination1);
         returnValue = Solution.addUser(userWrongHop2);
         assertNotNull(returnValue);
-        assertEquals(BAD_PARAMS, returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
 
         // trying to add user with negative source
         User userNegativeSource = new User(id1, source_negative1, destination2);
@@ -111,7 +111,7 @@ public class AddUserTests {
         User userReversedHop = new User(id3, source2, destination1);
         returnValue = Solution.addUser(userReversedHop);
         assertNotNull(returnValue);
-        assertEquals(BAD_PARAMS, returnValue);
+        assertEquals(NOT_EXISTS, returnValue);
 
         // #5 - ALREADY_EXISTS
         // adding already added user (same User object)
