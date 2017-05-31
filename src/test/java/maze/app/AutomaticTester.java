@@ -169,14 +169,16 @@ public class AutomaticTester {
                             if (hopIndex == -1) {
                                 assertEquals(NOT_EXISTS, returnValue);
                             } else {
-                                Hop org = new Hop(users.get(index).getSource(), users.get(index).getDestination());
-                                int orgIndex = hopFindIgnoreLoad(hops, org);
-                                if (orgIndex != -1) {
-                                    users.get(index).setSource(newUser.getSource());
-                                    users.get(index).setSource(newUser.getDestination());
+                                users.get(index).setSource(newUser.getSource());
+                                users.get(index).setDestination(newUser.getDestination());
+//                                Hop org = new Hop(users.get(index).getSource(), users.get(index).getDestination());
+//                                int orgIndex = hopFindIgnoreLoad(hops, org);
+//                                if (orgIndex != -1) {
+//                                    users.get(index).setSource(newUser.getSource());
+//                                    users.get(index).setSource(newUser.getDestination());
     //                                int orgUsersAmount = hopActualLoad.get(org) / hops.get(orgIndex).getLoad() - 1;
     //                                hopActualLoad.put(org, hops.get(orgIndex).getLoad() * (orgUsersAmount + 1));
-                                }
+//                                }
     //                            int newUsersAmount = hopActualLoad.get(temp) / hops.get(hopIndex).getLoad() + 1;
     //                            hopActualLoad.put(temp, hops.get(hopIndex).getLoad() * (newUsersAmount + 1));
 

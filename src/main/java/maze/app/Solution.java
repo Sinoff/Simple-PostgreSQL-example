@@ -345,14 +345,7 @@ public class Solution {
             ret = ReturnValue.OK;
         } catch (SQLException e) {
             e.printStackTrace();
-            //Added due to update from FAQ:
-            //"on object creation: Always return BAD_PARAMS since NOT_EXISTS is not an option unless you
-            // create a user with a non existing hop, only in this case you should return NOT_EXISTS"
-            if(Integer.valueOf(e.getSQLState()) == PostgreSQLErrorCodes.FOREIGN_KEY_VIOLATION.getValue())
-            {
-                ret = ReturnValue.NOT_EXISTS;
-            }
-            else ret = checkSQLException(e);
+            ret = checkSQLException(e);
         }
         finally {
             try {
