@@ -1,6 +1,6 @@
-*************************************************
-				simple sql example 
-**************************************************
+**************************************************************************************************
+								simple sql example 
+***************************************************************************************************
 
 This repository includes a simple example of PostgreSQL queries:
 Create table, delete table, drop table, 
@@ -27,7 +27,7 @@ The DB has 2 tables:
 
 id is the key, and (source,destination) must exist in "hops"
 
-*************************************************************
+**************************************************************************************************************
 
 Important files in the repository:
 Solution.java 		- This file is consisting the queries.
